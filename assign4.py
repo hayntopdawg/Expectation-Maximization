@@ -25,112 +25,102 @@ def split_data(filename):
     return np.array(X, dtype='float'), np.array(y)
 
 
-# Initialize by randomly selecting means
-def init_mu(X, k):
-    n = X.shape[0]
-    d = X.shape[1]
-
-    # create means list
-    mu = np.zeros((k, d))
-
-    # seed random numbers to make calculation deterministic
-    np.random.seed(1)
-
-    for i in xrange(k):
-        for j in xrange(d):
-            mu[i, j] = np.random.choice(X[:, j], 1)
-
-    return mu
-
-
-# Initialize each covariance matrix to the identity matrix
-def init_sig(d, k):
-    sig = [np.eye(d, d) for _ in xrange(k)]
-    return np.array(sig)
-
-
-# Initialize each prior probability to 1/k
-def init_pri_prob(k):
-    P = [1/k for _ in xrange(k)]
-    return np.array(P)
-
-
-def g_func(x, mu, sig):
-    """
-    Computes the D-variate Gaussian function
-    :param x: single sample from data matrix D
-    :param mu: mean vector for cluster i
-    :param sig: covariance matrix for cluster i
-    :return: f(x|mu(i), sig(i))
-    """
-    denom = pow(2 * math.pi, x.shape[0] / 2) * np.sqrt(np.linalg.det(sig))
-    num = np.exp(-np.dot(np.dot((x - mu), np.linalg.inv(sig)), (x - mu).T) / 2)
-    return num / denom
-
-
-# Compute posterior probability P(Ci | x_j)
-def compute_post_prob(x, mu, sig, p):
-    return g_func(x, mu, sig) * p
-
-
-# Compute weight w_ij
-def compute_weight(x, Mu, Sig, P, i):
-    denom = 0
-    k = Mu.shape[0]
-    for a in xrange(k):
-        denom += compute_post_prob(x, Mu[a, :], Sig[a], P[a])
-    return compute_post_prob(x, Mu[i, :], Sig[i], P[i]) / denom
-
-
-def expectation_step(X, Mu, Sig, P):
-    n = X.shape[0]
-    k = Mu.shape[0]
-    w = np.zeros((k, n))
-    for i in xrange(k):
-        for j in xrange(n):
-            w[i, j] = compute_weight(X[j, :], Mu, Sig, P, i)
-    return w
-
-
-# re-estimate mean
-def compute_mean(X, w):
-    wi = w.reshape((w.shape[0], 1))
-    num = np.sum(np.multiply(wi, X), 0)
-    mu = num / np.sum(wi)
-    return mu
-
-
-# re-estimate covariance matrix
-def compute_covariance(X, mu, w):
-    wi = w.reshape((w.shape[0], 1))
-    return (np.dot(np.multiply(wi, (X - mu)).T, (X - mu))) / np.sum(wi)
-
-
-# re-estimate prior probability
-def compute_pri_prob(w, n):
-    wi = w.reshape((w.shape[0], 1))
-    return np.sum(wi) / n
-
-
-def maximization_step(X, Mu, Sig, P, W, k):
-    for i in xrange(k):
-        Mu[i, :] = compute_mean(X, W[i,:])
-        Sig[i] = compute_covariance(X, Mu[i,:], W[i,:])
-        P[i] = compute_pri_prob(W[i,:], X.shape[0])
-    return Mu, Sig, P
-
-
 class EM():
     def __init__(self, k=1, eps=0.001):
         self.k = k
         self.eps = eps
 
 
+    # Initialize by randomly selecting means
+    def init_mu(self, X):# create means list
+        mu = np.zeros((self.k, self.d))
+
+        # seed random numbers to make calculation deterministic
+        np.random.seed(1)
+
+        for i in xrange(self.k):
+            for j in xrange(self.d):
+                mu[i, j] = np.random.choice(X[:, j], 1)
+        return mu
+
+
+    # Initialize each covariance matrix to the identity matrix
+    def init_sig(self):
+        sig = [np.eye(self.d, self.d) for _ in xrange(self.k)]
+        return np.array(sig)  # should I leave it as a list?
+
+
+    # Initialize each prior probability to 1/k
+    def init_pri_prob(self):
+        P = [1/self.k for _ in xrange(self.k)]
+        return np.array(P)  # should I leave it as a list?
+
+
+    def g_func(self, x, mu, sig):
+        """
+        Computes the D-variate Gaussian function
+        :param x: single sample from data matrix D
+        :param mu: mean vector for cluster i
+        :param sig: covariance matrix for cluster i
+        :return: f(x|mu(i), sig(i))
+        """
+        denom = pow(2 * math.pi, x.shape[0] / 2) * np.sqrt(np.linalg.det(sig))
+        num = np.exp(-np.dot(np.dot((x - mu), np.linalg.inv(sig)), (x - mu).T) / 2)
+        return num / denom
+
+
+    # Compute posterior probability P(Ci | x_j)
+    def compute_post_prob(self, x, mu, sig, p):
+        return self.g_func(x, mu, sig) * p
+
+
+    # Compute weight w_ij
+    def compute_weight(self, x, i):
+        denom = 0
+        for a in xrange(k):
+            denom += self.compute_post_prob(x, self.Mu[a, :], self.Sig[a], self.P[a])
+        return self.compute_post_prob(x, self.Mu[i, :], self.Sig[i], self.P[i]) / denom
+
+
+    def expectation_step(self, X):
+        self.W = np.zeros((self.k, self.n))
+        for i in xrange(self.k):
+            for j in xrange(self.n):
+                self.W[i, j] = self.compute_weight(X[j, :], i)
+
+
+    # re-estimate mean
+    def compute_mean(self, X, w):
+        wi = w.reshape((w.shape[0], 1))
+        num = np.sum(np.multiply(wi, X), 0)
+        mu = num / np.sum(wi)
+        return mu
+
+
+    # re-estimate covariance matrix
+    def compute_covariance(self, X, mu, w):
+        wi = w.reshape((w.shape[0], 1))
+        return (np.dot(np.multiply(wi, (X - mu)).T, (X - mu))) / np.sum(wi)
+
+
+    # re-estimate prior probability
+    def compute_pri_prob(self, w):
+        wi = w.reshape((w.shape[0], 1))
+        return np.sum(wi) / self.n
+
+
+    def maximization_step(self, X):
+        for i in xrange(self.k):
+            self.Mu[i, :] = self.compute_mean(X, self.W[i,:])
+            self.Sig[i] = self.compute_covariance(X, self.Mu[i,:], self.W[i,:])
+            self.P[i] = self.compute_pri_prob(self.W[i,:])
+
+
     def _initialize(self, X):
         self.n, self.d = X.shape
-        self.Mu = init_mu(X, self.k)
-        self.Sig = init_sig(X.shape[1], self.k)
-        self.P = init_pri_prob(self.k)
+        self.Mu = self.init_mu(X)
+        self.Sig = self.init_sig()
+        self.P = self.init_pri_prob()
 
 
     def train(self, X):
@@ -141,12 +131,12 @@ class EM():
         while converged == False:
             Mu_prev = np.copy(self.Mu)
             # Tests
-            W = expectation_step(X, self.Mu, self.Sig, self.P)
+            self.expectation_step(X)
             # print W
             # print W.shape
             # mu = compute_mean(X, W[0, :])
             # print mu
-            self.Mu, self.Sig, self.P = maximization_step(X, self.Mu, self.Sig, self.P, W, self.k)
+            self.maximization_step(X)
             # print Mu
             # print Sig
             # print P
