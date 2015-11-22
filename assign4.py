@@ -142,20 +142,8 @@ class EM():
             self.t += 1
 
 
-    def get_mean(self):
-        return self.Mu
-
-
-    def get_covariance(self):
-        return self.Sig
-
-
-    def get_iterations(self):
-        return self.t
-
-
     def predict(self):
-        pass
+        return np.argmax(self.W, axis=0)
 
 
     def purity_score(self):
@@ -165,23 +153,25 @@ class EM():
 def iris(k, eps):
     # Input (X) and target (y) datasets
     X, y = split_data('iris.txt')
-    # print X.shape
-    # print y.shape
 
     em = EM(k, eps)
     em.train(X)
-    Mu = em.get_mean()
-    Sig = em.get_covariance()
-    t = em.get_iterations()
-    return Mu, Sig, t
+    Mu = em.Mu
+    Sig = em.Sig
+    W = em.W
+    t = em.t
+    return Mu, Sig, W, t, em.predict(), y
 
 
 if __name__ == '__main__':
     k = 3
     eps = 0.001
 
-    Mu, Sig, t = iris(k, eps)
+    Mu, Sig, W, t, preds, y = iris(k, eps)
     print "Mu:\n{}\n".format(Mu)
     print "Sig:\n{}\n".format(Sig)
-    # print "P: {}\n".format(P)
-    print "t: {}".format(t)
+    print "W:\n{}\n".format(W)
+    print "t: {}\n".format(t)
+    print "preds:"
+    for i, n in enumerate(preds):
+        print "{} {}".format(n, y[i])
