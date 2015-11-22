@@ -31,18 +31,16 @@ def init_mu(X, k):
     d = X.shape[1]
 
     # create means list
-    mu = [[] for _ in xrange(k)]
+    mu = np.zeros((k, d))
 
     # seed random numbers to make calculation deterministic
-    # np.random.seed(1)
+    np.random.seed(1)
 
     for i in xrange(k):
-        # select random locations for mean values
-        a = np.random.randint(n, size=d)
         for j in xrange(d):
-            mu[i].append(X[a[i], j])
+            mu[i, j] = np.random.choice(X[:, j], 1)
 
-    return np.array(mu).T
+    return mu
 
 
 # Initialize each covariance matrix to the identity matrix
@@ -78,15 +76,15 @@ def compute_post_prob(x, mu, sig, p):
 # Compute weight w_ij
 def compute_weight(x, Mu, Sig, P, i):
     denom = 0
-    k = Mu.shape[1]
+    k = Mu.shape[0]
     for a in xrange(k):
-        denom += compute_post_prob(x, Mu[:, a], Sig[a], P[a])
-    return compute_post_prob(x, Mu[:, i], Sig[i], P[i]) / denom
+        denom += compute_post_prob(x, Mu[a, :], Sig[a], P[a])
+    return compute_post_prob(x, Mu[i, :], Sig[i], P[i]) / denom
 
 
 def expectation_step(X, Mu, Sig, P):
     n = X.shape[0]
-    k = Mu.shape[1]
+    k = Mu.shape[0]
     w = np.zeros((k, n))
     for i in xrange(k):
         for j in xrange(n):
@@ -116,8 +114,8 @@ def compute_pri_prob(w, n):
 
 def maximization_step(X, Mu, Sig, P, W, k):
     for i in xrange(k):
-        Mu[:, i] = compute_mean(X, W[i,:])
-        Sig[i] = compute_covariance(X, Mu[:, i], W[i,:])
+        Mu[i, :] = compute_mean(X, W[i,:])
+        Sig[i] = compute_covariance(X, Mu[i,:], W[i,:])
         P[i] = compute_pri_prob(W[i,:], X.shape[0])
     return Mu, Sig, P
 
@@ -190,6 +188,9 @@ def iris(k, eps):
     # print y.shape
 
     em = EM(k, eps)
+    em._initialize(X)
+    print "Initial mean:\n{}".format(em.get_mean())
+
     em.train(X)
     Mu = em.get_mean()
     Sig = em.get_covariance()
