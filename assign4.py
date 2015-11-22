@@ -32,11 +32,11 @@ class EM():
 
 
     # Initialize by randomly selecting means
-    def init_mu(self, X):# create means list
+    def _init_mu(self, X):  # create means list
         mu = np.zeros((self.k, self.d))
 
         # seed random numbers to make calculation deterministic
-        np.random.seed(1)
+        # np.random.seed(1)
 
         for i in xrange(self.k):
             for j in xrange(self.d):
@@ -45,18 +45,18 @@ class EM():
 
 
     # Initialize each covariance matrix to the identity matrix
-    def init_sig(self):
+    def _init_sig(self):
         sig = [np.eye(self.d, self.d) for _ in xrange(self.k)]
         return np.array(sig)  # should I leave it as a list?
 
 
     # Initialize each prior probability to 1/k
-    def init_pri_prob(self):
-        P = [1/self.k for _ in xrange(self.k)]
+    def _init_pri_prob(self):
+        P = [1 / self.k for _ in xrange(self.k)]
         return np.array(P)  # should I leave it as a list?
 
 
-    def g_func(self, x, mu, sig):
+    def _g_func(self, x, mu, sig):
         """
         Computes the D-variate Gaussian function
         :param x: single sample from data matrix D
@@ -70,27 +70,27 @@ class EM():
 
 
     # Compute posterior probability P(Ci | x_j)
-    def compute_post_prob(self, x, mu, sig, p):
-        return self.g_func(x, mu, sig) * p
+    def _compute_post_prob(self, x, mu, sig, p):
+        return self._g_func(x, mu, sig) * p
 
 
     # Compute weight w_ij
-    def compute_weight(self, x, i):
+    def _compute_weight(self, x, i):
         denom = 0
         for a in xrange(k):
-            denom += self.compute_post_prob(x, self.Mu[a, :], self.Sig[a], self.P[a])
-        return self.compute_post_prob(x, self.Mu[i, :], self.Sig[i], self.P[i]) / denom
+            denom += self._compute_post_prob(x, self.Mu[a, :], self.Sig[a], self.P[a])
+        return self._compute_post_prob(x, self.Mu[i, :], self.Sig[i], self.P[i]) / denom
 
 
     def expectation_step(self, X):
         self.W = np.zeros((self.k, self.n))
         for i in xrange(self.k):
             for j in xrange(self.n):
-                self.W[i, j] = self.compute_weight(X[j, :], i)
+                self.W[i, j] = self._compute_weight(X[j, :], i)
 
 
     # re-estimate mean
-    def compute_mean(self, X, w):
+    def _compute_mean(self, X, w):
         wi = w.reshape((w.shape[0], 1))
         num = np.sum(np.multiply(wi, X), 0)
         mu = num / np.sum(wi)
@@ -98,29 +98,29 @@ class EM():
 
 
     # re-estimate covariance matrix
-    def compute_covariance(self, X, mu, w):
+    def _compute_covariance(self, X, mu, w):
         wi = w.reshape((w.shape[0], 1))
         return (np.dot(np.multiply(wi, (X - mu)).T, (X - mu))) / np.sum(wi)
 
 
     # re-estimate prior probability
-    def compute_pri_prob(self, w):
+    def _compute_pri_prob(self, w):
         wi = w.reshape((w.shape[0], 1))
         return np.sum(wi) / self.n
 
 
     def maximization_step(self, X):
         for i in xrange(self.k):
-            self.Mu[i, :] = self.compute_mean(X, self.W[i,:])
-            self.Sig[i] = self.compute_covariance(X, self.Mu[i,:], self.W[i,:])
-            self.P[i] = self.compute_pri_prob(self.W[i,:])
+            self.Mu[i, :] = self._compute_mean(X, self.W[i, :])
+            self.Sig[i] = self._compute_covariance(X, self.Mu[i, :], self.W[i, :])
+            self.P[i] = self._compute_pri_prob(self.W[i, :])
 
 
     def _initialize(self, X):
         self.n, self.d = X.shape
-        self.Mu = self.init_mu(X)
-        self.Sig = self.init_sig()
-        self.P = self.init_pri_prob()
+        self.Mu = self._init_mu(X)
+        self.Sig = self._init_sig()
+        self.P = self._init_pri_prob()
 
 
     def train(self, X):
@@ -130,16 +130,8 @@ class EM():
         converged = False
         while converged == False:
             Mu_prev = np.copy(self.Mu)
-            # Tests
             self.expectation_step(X)
-            # print W
-            # print W.shape
-            # mu = compute_mean(X, W[0, :])
-            # print mu
             self.maximization_step(X)
-            # print Mu
-            # print Sig
-            # print P
             for i in xrange(k):
                 sq_norm = np.linalg.norm((self.Mu[i] - Mu_prev[i])) ** 2
                 if sq_norm <= eps:
@@ -148,7 +140,6 @@ class EM():
                     converged = False
                     break
             self.t += 1
-        # return Mu, Sig, P, t
 
 
     def get_mean(self):
@@ -178,9 +169,6 @@ def iris(k, eps):
     # print y.shape
 
     em = EM(k, eps)
-    em._initialize(X)
-    print "Initial mean:\n{}".format(em.get_mean())
-
     em.train(X)
     Mu = em.get_mean()
     Sig = em.get_covariance()
