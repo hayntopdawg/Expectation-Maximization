@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import division
+from collections import Counter
 
 import csv
 import math
@@ -143,16 +144,26 @@ class EM():
 
 
     def predict(self):
-        return np.argmax(self.W, axis=0)
+        self.preds = np.argmax(self.W, axis=0)
+        return self.preds
 
 
-    def purity_score(self):
-        pass
+    def purity_score(self, y):
+        C = [[] for _ in xrange(self.k)]
+        for n, i in enumerate(self.preds):
+            C[i].append(y[n])
+        clusters = [[] for _ in xrange(self.k)]
+        for j in xrange(self.k):
+            clusters[j] = Counter(C[j])
+        p = 0
+        for cluster in clusters:
+            p += cluster.most_common(1)[0][1]
+        return clusters, p/self.n
 
 
-def iris(k, eps):
+def em_single(filename, k, eps):
     # Input (X) and target (y) datasets
-    X, y = split_data('iris.txt')
+    X, y = split_data(filename)
 
     em = EM(k, eps)
     em.train(X)
@@ -160,18 +171,28 @@ def iris(k, eps):
     Sig = em.Sig
     W = em.W
     t = em.t
-    return Mu, Sig, W, t, em.predict(), y
+    preds = em.predict()
+    counts = np.bincount(preds)
+    clusters, purity = em.purity_score(y)
+
+    print "Mu:\n{}\n".format(Mu)
+    print "Sig:\n{}\n".format(Sig)
+    print "W:\n{}\n".format(W)
+    print "t: {}\n".format(t)
+    print "preds:"
+    for n, i in enumerate(preds):
+        print "{} {}".format(i, y[n])
+    print "counts: {}\n".format(counts)
+    print "clusters: {}\n".format(clusters)
+    print "purity: {}\n".format(purity)
+
+
+def find_purest(filename, iterations=100):
+    pass
 
 
 if __name__ == '__main__':
     k = 3
     eps = 0.001
 
-    Mu, Sig, W, t, preds, y = iris(k, eps)
-    print "Mu:\n{}\n".format(Mu)
-    print "Sig:\n{}\n".format(Sig)
-    print "W:\n{}\n".format(W)
-    print "t: {}\n".format(t)
-    print "preds:"
-    for i, n in enumerate(preds):
-        print "{} {}".format(n, y[i])
+    em_single('iris.txt', k, eps)
