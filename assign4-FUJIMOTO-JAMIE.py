@@ -5,6 +5,7 @@ from collections import Counter
 import csv
 import math
 import numpy as np
+import sys
 
 __author__ = 'Jamie Fujimoto'
 
@@ -33,7 +34,7 @@ class EM():
 
 
     # Initialize by randomly selecting means
-    def _init_mu(self, X):  # create means list
+    def _init_mu(self, X):
         mu = np.zeros((self.k, self.d))
 
         # seed random numbers to make calculation deterministic
@@ -66,6 +67,11 @@ class EM():
         :return: f(x|mu(i), sig(i))
         """
         denom = pow(2 * math.pi, x.shape[0] / 2) * np.sqrt(np.linalg.det(sig))
+        if denom == 0:
+            lambda_I = 0.001 * np.eye(sig.shape[0])
+            sig += lambda_I
+            denom = pow(2 * math.pi, x.shape[0] / 2) * np.sqrt(np.linalg.det(sig))
+
         num = np.exp(-np.dot(np.dot((x - mu), np.linalg.inv(sig)), (x - mu).T) / 2)
         return num / denom
 
@@ -78,8 +84,9 @@ class EM():
     # Compute weight w_ij
     def _compute_weight(self, x, i):
         denom = 0
-        for a in xrange(k):
+        for a in xrange(self.k):
             denom += self._compute_post_prob(x, self.Mu[a, :], self.Sig[a], self.P[a])
+        # print denom
         return self._compute_post_prob(x, self.Mu[i, :], self.Sig[i], self.P[i]) / denom
 
 
@@ -133,9 +140,9 @@ class EM():
             Mu_prev = np.copy(self.Mu)
             self.expectation_step(X)
             self.maximization_step(X)
-            for i in xrange(k):
+            for i in xrange(self.k):
                 sq_norm = np.linalg.norm((self.Mu[i] - Mu_prev[i])) ** 2
-                if sq_norm <= eps:
+                if sq_norm <= self.eps:
                     converged = True
                 else:
                     converged = False
@@ -145,7 +152,6 @@ class EM():
 
     def predict(self):
         self.preds = np.argmax(self.W, axis=0)
-        return self.preds
 
 
     def purity_score(self, y):
@@ -167,32 +173,61 @@ def em_single(filename, k, eps):
 
     em = EM(k, eps)
     em.train(X)
-    Mu = em.Mu
-    Sig = em.Sig
-    W = em.W
-    t = em.t
-    preds = em.predict()
-    counts = np.bincount(preds)
+    em.predict()
+    counts = np.bincount(em.preds)
     clusters, purity = em.purity_score(y)
 
-    print "Mu:\n{}\n".format(Mu)
-    print "Sig:\n{}\n".format(Sig)
-    print "W:\n{}\n".format(W)
-    print "t: {}\n".format(t)
-    print "preds:"
-    for n, i in enumerate(preds):
-        print "{} {}".format(i, y[n])
-    print "counts: {}\n".format(counts)
-    print "clusters: {}\n".format(clusters)
-    print "purity: {}\n".format(purity)
+    return em, X, y, counts, clusters, purity
 
 
-def find_purest(filename, iterations=100):
-    pass
+def write_to(filename, em, X, y, counts, clusters, purity):
+    with open(filename, "w") as f:
+        f.write("Final mean for each cluster:\n")
+        for i in xrange(em.k):
+            f.write("Cluster {}: {}\n".format(i, em.Mu[i,:]))
+        f.write("\nFinal covariance matrix for each cluster:\n")
+        for i in xrange(em.k):
+            f.write("Cluster {}:\n{}\n".format(i, em.Sig[i]))
+        # print "W:\n{}\n".format(W)
+        f.write("\nEM algorithm took {} iterations.\n".format(em.t))
+        f.write("\nFinal cluster assignments of all points:\n")
+        for n, i in enumerate(em.preds):
+             f.write("{} {} --> Cluster: {}\n".format(X[n], y[n], i))
+        f.write("\nFinal size of each cluster:\n")
+        for i in xrange(em.k):
+            f.write("Cluster {}: {}\n".format(i, counts[i]))
+        f.write("\nCluster breakdown: {}\n".format(clusters))
+        f.write("\nPurity score: {}".format(purity))
+
+
+def find_purest(filename, k, eps, iterations=100):
+    purest = 0
+    for i in xrange(iterations):
+        em, X, y, counts, clusters, purity = em_single(filename, k, eps)
+        # if i % 10 == 0:
+        print purity
+        if purity > purest:
+            purest_em = em
+            purest_counts = counts
+            purest_clusters = clusters
+            purest = purity
+    outfile = filename.split(".txt")[0] + "_output.txt"
+    write_to(outfile, purest_em, X, y, purest_counts, purest_clusters, purest)
+
+
+def script():
+    filename = sys.argv[1]
+    k = int(sys.argv[2])
+    eps = float(sys.argv[3])
+
+    em, X, y, counts, clusters, purity = em_single(filename, k, eps)
+    outfile = filename.split(".txt")[0] + "_output.txt"
+    write_to(outfile, em, X, y, counts, clusters, purity)
 
 
 if __name__ == '__main__':
-    k = 3
-    eps = 0.001
-
-    em_single('iris.txt', k, eps)
+    # em_single('iris.txt', k, eps)
+    # find_purest('iris.txt', 3, 0.001, 50)
+    # find_purest('1R2RC_truth.txt', 3, 0.001, 50)
+    # find_purest("dancing_truth.txt", 5, 0.001, 50)
+    script()
